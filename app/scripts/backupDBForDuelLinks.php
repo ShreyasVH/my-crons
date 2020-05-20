@@ -1,290 +1,87 @@
 <?php
 
-class BackupDB
+require_once 'Constants.php';
+require_once 'DBFunctions.php';
+require_once 'MailFunctions.php';
+
+class BackupDB_DuelLinks
 {
-    private $dbHost;
-    private $dbPort;
-    private $dbUser;
-    private $dbPassword;
-    private $dbName;
-
-    public function __construct()
+    private function isRequired()
     {
+        $isRequired = false;
 
-    }
+        $config = [
+            'host' => getenv('DB_HOST_LOGS'),
+            'port' => getenv('DB_PORT_LOGS'),
+            'user' => getenv('DB_USER_LOGS'),
+            'password' => getenv('DB_PASSWORD_LOGS'),
+            'dbName' => getenv('DB_NAME_LOGS')
+        ];
 
-    public function setCredentials($host, $port, $user, $password, $dbName)
-    {
-        $this->dbHost = $host;
-        $this->dbPort = $port;
-        $this->dbUser = $user;
-        $this->dbPassword = $password;
-        $this->dbName = $dbName;
-    }
-
-    public function sendMail($payload)
-    {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, getenv('MAILER_ENDPOINT') . 'api');
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 30000);
-        curl_setopt($ch, CURLOPT_TIMEOUT_MS, 30000);
-        curl_setopt($ch, CURLINFO_HEADER_OUT, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_HEX_QUOT | JSON_HEX_APOS | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-        $result = curl_exec($ch);
-        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if($status != 200)
+        if(isAvailable($config))
         {
-            echo "\nError while sending mail. Response: " . $result . ". Payload: " . json_encode($payload) . "\n";
-        }
-        return $result;
-    }
-
-    public function getTables()
-    {
-        $tables = [];
-        $query = 'show full tables where Table_Type = \'BASE TABLE\'';
-        $result = $this->runQuery($query);
-
-        if(!empty($result))
-        {
-            $rows = $result->fetch_all(MYSQLI_ASSOC);
-
-            if(!empty($rows))
+            $query = 'SELECT `action_time` FROM `cron_logs` WHERE type = ' . Constants::TYPE_BACKUP_DB_DUEL_LINKS;
+            $result = runQuery($config, $query);
+            if(!empty($result))
             {
-                $tables = array_column($rows, 'Tables_in_' . $this->dbName);
+                $rows = $result->fetch_all(MYSQLI_ASSOC);
+                if(!empty($rows))
+                {
+                    $lastActionTime = strtotime($rows[0]['action_time']);
+                    $now = time();
+                    $isRequired = (($now - $lastActionTime) > (24 * 3600));
+                }
+                else
+                {
+                    $isRequired = true;
+                }
             }
-            $result->free();
-        }
-
-        return $tables;
-    }
-
-    public function runQuery($query)
-    {
-        $result = false;
-        $dbLink = $this->connect();
-        if($dbLink)
-        {
-            $result = mysqli_query($dbLink, $query);
-            if(!$result)
-            {
-                echo("\nError executing mysql query.\nQuery : " . $query . ".\nResponse : " . json_encode($result, JSON_PRETTY_PRINT) . "\nError : " . $dbLink->error);
-            }
-
-            $dbLink->close();
         }
         else
         {
-            echo("\nError executing mysql query.\nQuery : " . $query . ".\nResponse : " . json_encode($result, JSON_PRETTY_PRINT) . "\nError : Couldn't connect to DB");
-        }
-        return $result;
-    }
-
-    public function connect()
-    {
-        return mysqli_connect($this->dbHost, $this->dbUser, $this->dbPassword, $this->dbName, $this->dbPort);
-    }
-
-    public function getTableStructure($tableName)
-    {
-        $structure = '';
-        $query = 'SHOW CREATE TABLE `' . $tableName . '`';
-        $result = $this->runQuery($query);
-        if(!empty($result))
-        {
-            $rows = $result->fetch_all(MYSQLI_ASSOC);
-            $result->free();
-
-            if(!empty($rows))
-            {
-                $structure = $rows[0]['Create Table'];
-            }
-        }
-
-        return $structure;
-    }
-
-    public function getRowCount($tableName)
-    {
-        $count = 0;
-
-        $query = 'SELECT COUNT(*) as count FROM `' . $tableName . '`';
-        $result = $this->runQuery($query);
-
-        if(!empty($result))
-        {
-            $rows = $result->fetch_all(MYSQLI_ASSOC);
-            $result->free();
-
-            if(!empty($rows))
-            {
-                $row = $rows[0];
-                $count = $row['count'];
-            }
-        }
-
-        return $count;
-    }
-
-    public function getRows($tableName, $offset, $limit)
-    {
-        $rows = [];
-
-        $query = 'SELECT * FROM `' . $tableName . '` LIMIT ' . $limit . ' OFFSET ' . $offset;
-        $result = $this->runQuery($query);
-        if(!empty($result))
-        {
-            $rows = array_merge($rows, $result->fetch_all(MYSQLI_ASSOC));
-            $result->free();
-        }
-
-        return $rows;
-    }
-
-    public function getReferencedTables($tableName)
-    {
-
-    }
-
-    public function getQueriesForTable($tableName)
-    {
-        $queries = [];
-
-        $structure = $this->getTableStructure($tableName);
-        if(!empty($structure))
-        {
-            $queries[] = "# Dump of table " . $tableName;
-            $queries[] = "# ------------------------------------------------------------";
-
-            $queries[] = "DROP TABLE IF EXISTS `" . $tableName . "`;";
-            $queries[] = "/*!40101 SET @saved_cs_client     = @@character_set_client */;";
-            $queries[] = "/*!40101 SET character_set_client = utf8 */;";
-            $queries[] = $structure . ";";
-            $queries[] = "/*!40101 SET character_set_client = @saved_cs_client */;";
-            $queries[] = "\n";
-            $queries[] = 'TRUNCATE TABLE `' . $tableName . "`;\n";
-
-            $queries[] = "/*!40000 ALTER TABLE `" . $tableName . "` DISABLE KEYS */;";
-            $totalCount = $this->getRowCount($tableName);
-
-            $offset = 0;
-            $limit = 1000;
-
-            while($offset < $totalCount)
-            {
-
-                $rows = $this->getRows($tableName, $offset, $limit);
-                if(!empty($rows))
-                {
-                    $columns = array_keys($rows[0]);
-                    $columns = array_map(function($value) {
-                        return '`' . $value . '`';
-                    }, $columns);
-
-                    $valueStrings = [];
-                    foreach($rows as $row)
-                    {
-                        $valueString = "(";
-                        $values = array_values($row);
-                        $values = array_map(function($value) {
-                            return '"' . str_replace('"', '\"', $value) . '"';
-                        }, $values);
-
-                        $valueString .= implode(", ", $values);
-
-                        $valueString .= ")";
-                        $valueStrings[] = $valueString;
-                    }
-                    $query = 'INSERT INTO `' . $tableName . '` (' . implode(', ', $columns) . ") VALUES \n" . implode(",\n", $valueStrings) . ";";
-                    $queries[] = $query;
-                }
-
-                $offset += $limit;
-            }
-
-            $queries[] = "/*!40000 ALTER TABLE `" . $tableName . "` ENABLE KEYS */;\n";
-        }
-
-        return $queries;
-    }
-
-    public function processDatabase()
-    {
-        $tables = $this->getTables();
-
-        foreach($tables as $index => $tableName)
-        {
-            if($index > 0)
-            {
-                echo "\n\t\t::::::::::::::::::::::::::::::\n";
-            }
-
-            echo "\n\t\tProcessing table. [" . ($index + 1) . "/" . count($tables) . "]\n";
-            $queries = [
-                "# ------------------------------------------------------------\n",
-                "SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;\n",
-                "SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;\n"
-            ];
-            $queries = array_merge($queries, $this->getQueriesForTable($tableName));
-
-            $queries[] = "SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=1;\n";
-            $queries[] = "SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=1;\n";
-            $queries[] = "# ------------------------------------------------------------";
-
-            $fileName = $tableName . '.sql';
-            file_put_contents($fileName, implode("\n", $queries));
-
-
             $payload = [
-                'from' => 'samham348@gmail.com',
-                'to' => 'shreyas.hande@gmail.com',
-                'subject' => 'DB Backup - ' . $this->dbName . ' ' . date('d-m-Y'),
-                'body' => "Host: " . $this->dbHost . "\nPort: " . $this->dbPort . "\nPFA",
-                'attachments' => [
-                    [
-                        'filename' => $fileName,
-                        'content' => base64_encode(file_get_contents($fileName))
-                    ]
-                ]
+                'from' => getenv('FROM_EMAIL_ID'),
+                'to' => getenv('TO_EMAIL_ID'),
+                'subject' => 'Could not connect to cron logs - EOM',
+                'body' => ''
             ];
 
-            echo "\n\t\t\tSending email\n";
-
-            $this->sendMail($payload);
-
-            unlink($fileName);
-
-            echo "\n\t\tProcessed table. [" . ($index + 1) . "/" . count($tables) . "]\n";
+            sendMail($payload);
         }
+
+        return $isRequired;
     }
 
+    private function updateLogs()
+    {
+        $config = [
+            'host' => getenv('DB_HOST_LOGS'),
+            'port' => getenv('DB_PORT_LOGS'),
+            'user' => getenv('DB_USER_LOGS'),
+            'password' => getenv('DB_PASSWORD_LOGS'),
+            'dbName' => getenv('DB_NAME_LOGS')
+        ];
+        $query = 'UPDATE `cron_logs` SET `action_time` = "' . date('Y-m-d H:i:s') . '" WHERE type = ' . Constants::TYPE_BACKUP_DB_DUEL_LINKS;
+        runQuery($config, $query);
+    }
 
     public function execute()
     {
-//        $this->setCredentials(
-//            getenv('DB_HOST_DUEL_LINKS'),
-//            getenv('DB_PORT_DUEL_LINKS'),
-//            getenv('DB_USER_DUEL_LINKS'),
-//            getenv('DB_PASSWORD_DUEL_LINKS'),
-//            getenv('DB_NAME_DUEL_LINKS')
-//        );
-//        $this->processDatabase();
+        if($this->isRequired())
+        {
+            $config = [
+                'host' => getenv('DB_HOST_DUEL_LINKS'),
+                'port' => getenv('DB_PORT_DUEL_LINKS'),
+                'user' => getenv('DB_USER_DUEL_LINKS'),
+                'password' => getenv('DB_PASSWORD_DUEL_LINKS'),
+                'dbName' => getenv('DB_NAME_DUEL_LINKS')
+            ];
+            processDatabase($config, getenv('DB_NAME_DUEL_LINKS'), 'DUEL_LINKS');
 
-        $payload = [
-            'from' => 'samham348@gmail.com',
-            'to' => 'shreyas.hande@gmail.com',
-            'subject' => 'Testing',
-            'body' => "Body"
-        ];
-        $this->sendMail($payload);
+            $this->updateLogs();
+        }
     }
 }
 
-$runner = new BackupDB();
+$runner = new BackupDB_DuelLinks();
 $runner->execute();
