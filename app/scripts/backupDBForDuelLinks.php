@@ -1,5 +1,7 @@
 <?php
 
+date_default_timezone_set('Asia/Kolkata');
+
 require_once 'Constants.php';
 require_once 'DBFunctions.php';
 require_once 'MailFunctions.php';
