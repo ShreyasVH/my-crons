@@ -50,7 +50,7 @@ function runQuery($config, $query)
 
 function connect($config)
 {
-    return mysqli_connect($config['host'], $config['user'], $config['password'], $config['dbName'], $config['port']);
+    return mysqli_connect($config['host'], $config['user'], $config['password'], $config['dbName'], (int) $config['port']);
 }
 
 function getTableStructure($config, $tableName)
@@ -150,7 +150,14 @@ function getQueriesForTable($config, $tableName)
                     $valueString = "(";
                     $values = array_values($row);
                     $values = array_map(function($value) {
-                        return '"' . str_replace('"', '\"', $value) . '"';
+                        if(is_null($value))
+                        {
+                            return 'NULL';
+                        }
+                        else
+                        {
+                            return '"' . str_replace('"', '\"', $value) . '"';
+                        }
                     }, $values);
 
                     $valueString .= implode(", ", $values);
@@ -199,8 +206,8 @@ function processDatabase($config, $databaseName, $formattedDBName)
 
 
         $payload = [
-            'from' => getenv('FROM_EMAIL_ID'),
-            'to' => getenv('TO_EMAIL_ID'),
+            'from' => trim(getenv('FROM_EMAIL_ID')),
+            'to' => trim(getenv('TO_EMAIL_ID')),
             'subject' => 'DB Backup - ' . $formattedDBName . ' ' . date('d-m-Y'),
             'body' => "\nPFA",
             'attachments' => [

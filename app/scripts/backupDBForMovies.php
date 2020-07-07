@@ -13,11 +13,11 @@ class BackupDBMovies
         $isRequired = false;
 
         $config = [
-            'host' => getenv('DB_HOST_LOGS'),
-            'port' => getenv('DB_PORT_LOGS'),
-            'user' => getenv('DB_USER_LOGS'),
-            'password' => getenv('DB_PASSWORD_LOGS'),
-            'dbName' => getenv('DB_NAME_LOGS')
+            'host' => trim(getenv('DB_HOST_LOGS')),
+            'port' => trim(getenv('DB_PORT_LOGS')),
+            'user' => trim(getenv('DB_USER_LOGS')),
+            'password' => trim(getenv('DB_PASSWORD_LOGS')),
+            'dbName' => trim(getenv('DB_NAME_LOGS'))
         ];
 
         if(isAvailable($config))
@@ -42,8 +42,8 @@ class BackupDBMovies
         else
         {
             $payload = [
-                'from' => getenv('FROM_EMAIL_ID'),
-                'to' => getenv('TO_EMAIL_ID'),
+                'from' => trim(getenv('FROM_EMAIL_ID')),
+                'to' => trim(getenv('TO_EMAIL_ID')),
                 'subject' => 'Could not connect to cron logs for "movies" - EOM',
                 'body' => ''
             ];
@@ -57,11 +57,11 @@ class BackupDBMovies
     private function updateLogs()
     {
         $config = [
-            'host' => getenv('DB_HOST_LOGS'),
-            'port' => getenv('DB_PORT_LOGS'),
-            'user' => getenv('DB_USER_LOGS'),
-            'password' => getenv('DB_PASSWORD_LOGS'),
-            'dbName' => getenv('DB_NAME_LOGS')
+            'host' => trim(getenv('DB_HOST_LOGS')),
+            'port' => trim(getenv('DB_PORT_LOGS')),
+            'user' => trim(getenv('DB_USER_LOGS')),
+            'password' => trim(getenv('DB_PASSWORD_LOGS')),
+            'dbName' => trim(getenv('DB_NAME_LOGS'))
         ];
         $query = 'UPDATE `cron_logs` SET `action_time` = "' . date('Y-m-d H:i:s') . '" WHERE type = ' . Constants::TYPE_BACKUP_DB_MOVIES;
         runQuery($config, $query);
@@ -72,13 +72,13 @@ class BackupDBMovies
         if($this->isRequired())
         {
             $config = [
-                'host' => getenv('DB_HOST_MOVIES'),
-                'port' => getenv('DB_PORT_MOVIES'),
-                'user' => getenv('DB_USER_MOVIES'),
-                'password' => getenv('DB_PASSWORD_MOVIES'),
-                'dbName' => getenv('DB_NAME_MOVIES')
+                'host' => trim(getenv('DB_HOST_MOVIES')),
+                'port' => trim(getenv('DB_PORT_MOVIES')),
+                'user' => trim(getenv('DB_USER_MOVIES')),
+                'password' => trim(getenv('DB_PASSWORD_MOVIES')),
+                'dbName' => trim(getenv('DB_NAME_MOVIES'))
             ];
-            processDatabase($config, getenv('DB_NAME_MOVIES'), 'MOVIES');
+            processDatabase($config, trim(getenv('DB_NAME_MOVIES')), 'MOVIES');
 
             $this->updateLogs();
         }

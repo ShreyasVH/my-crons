@@ -13,11 +13,11 @@ class BackupDB_DuelLinks
         $isRequired = false;
 
         $config = [
-            'host' => getenv('DB_HOST_LOGS'),
-            'port' => getenv('DB_PORT_LOGS'),
-            'user' => getenv('DB_USER_LOGS'),
-            'password' => getenv('DB_PASSWORD_LOGS'),
-            'dbName' => getenv('DB_NAME_LOGS')
+            'host' => trim(getenv('DB_HOST_LOGS')),
+            'port' => trim(getenv('DB_PORT_LOGS')),
+            'user' => trim(getenv('DB_USER_LOGS')),
+            'password' => trim(getenv('DB_PASSWORD_LOGS')),
+            'dbName' => trim(getenv('DB_NAME_LOGS'))
         ];
 
         if(isAvailable($config))
@@ -42,8 +42,8 @@ class BackupDB_DuelLinks
         else
         {
             $payload = [
-                'from' => getenv('FROM_EMAIL_ID'),
-                'to' => getenv('TO_EMAIL_ID'),
+                'from' => trim(getenv('FROM_EMAIL_ID')),
+                'to' => trim(getenv('TO_EMAIL_ID')),
                 'subject' => 'Could not connect to cron logs - EOM',
                 'body' => ''
             ];
@@ -57,11 +57,11 @@ class BackupDB_DuelLinks
     private function updateLogs()
     {
         $config = [
-            'host' => getenv('DB_HOST_LOGS'),
-            'port' => getenv('DB_PORT_LOGS'),
-            'user' => getenv('DB_USER_LOGS'),
-            'password' => getenv('DB_PASSWORD_LOGS'),
-            'dbName' => getenv('DB_NAME_LOGS')
+            'host' => trim(getenv('DB_HOST_LOGS')),
+            'port' => trim(getenv('DB_PORT_LOGS')),
+            'user' => trim(getenv('DB_USER_LOGS')),
+            'password' => trim(getenv('DB_PASSWORD_LOGS')),
+            'dbName' => trim(getenv('DB_NAME_LOGS'))
         ];
         $query = 'UPDATE `cron_logs` SET `action_time` = "' . date('Y-m-d H:i:s') . '" WHERE type = ' . Constants::TYPE_BACKUP_DB_DUEL_LINKS;
         runQuery($config, $query);
@@ -72,13 +72,13 @@ class BackupDB_DuelLinks
         if($this->isRequired())
         {
             $config = [
-                'host' => getenv('DB_HOST_DUEL_LINKS'),
-                'port' => getenv('DB_PORT_DUEL_LINKS'),
-                'user' => getenv('DB_USER_DUEL_LINKS'),
-                'password' => getenv('DB_PASSWORD_DUEL_LINKS'),
-                'dbName' => getenv('DB_NAME_DUEL_LINKS')
+                'host' => trim(getenv('DB_HOST_DUEL_LINKS')),
+                'port' => trim(getenv('DB_PORT_DUEL_LINKS')),
+                'user' => trim(getenv('DB_USER_DUEL_LINKS')),
+                'password' => trim(getenv('DB_PASSWORD_DUEL_LINKS')),
+                'dbName' => trim(getenv('DB_NAME_DUEL_LINKS'))
             ];
-            processDatabase($config, getenv('DB_NAME_DUEL_LINKS'), 'DUEL_LINKS');
+            processDatabase($config, trim(getenv('DB_NAME_DUEL_LINKS')), 'DUEL_LINKS');
 
             $this->updateLogs();
         }

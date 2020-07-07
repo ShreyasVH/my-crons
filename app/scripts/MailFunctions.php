@@ -3,7 +3,7 @@
 function sendMail($payload)
 {
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, getenv('MAILER_ENDPOINT') . 'api');
+    curl_setopt($ch, CURLOPT_URL, trim(getenv('MAILER_ENDPOINT')) . 'api');
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 30000);
