@@ -182,6 +182,14 @@ function processDatabase($config, $databaseName, $formattedDBName)
 {
     $tables = getTables($config, $databaseName);
 
+    $queries = [
+        "# ------------------------------------------------------------\n",
+        "SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;\n",
+        "SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;\n"
+    ];
+
+    $fileName = $formattedDBName . '.sql';
+
     foreach($tables as $index => $tableName)
     {
         if($index > 0)
@@ -190,40 +198,34 @@ function processDatabase($config, $databaseName, $formattedDBName)
         }
 
         echo "\n\t\tProcessing table. [" . ($index + 1) . "/" . count($tables) . "]\n";
-        $queries = [
-            "# ------------------------------------------------------------\n",
-            "SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;\n",
-            "SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;\n"
-        ];
+
         $queries = array_merge($queries, getQueriesForTable($config, $tableName));
-
-        $queries[] = "SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=1;\n";
-        $queries[] = "SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=1;\n";
-        $queries[] = "# ------------------------------------------------------------";
-
-        $fileName = $tableName . '.sql';
-        file_put_contents($fileName, implode("\n", $queries));
-
-
-        $payload = [
-            'from' => trim(getenv('FROM_EMAIL_ID')),
-            'to' => trim(getenv('TO_EMAIL_ID')),
-            'subject' => 'DB Backup - ' . $formattedDBName . ' ' . date('d-m-Y'),
-            'body' => "\nPFA",
-            'attachments' => [
-                [
-                    'filename' => $fileName,
-                    'content' => base64_encode(file_get_contents($fileName))
-                ]
-            ]
-        ];
-
-        echo "\n\t\t\tSending email\n";
-
-        sendMail($payload);
-
-        unlink($fileName);
+        $queries[] = "\n\n";
 
         echo "\n\t\tProcessed table. [" . ($index + 1) . "/" . count($tables) . "]\n";
     }
+
+    $queries[] = "SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=1;\n";
+    $queries[] = "SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=1;\n";
+    $queries[] = "# ------------------------------------------------------------";
+
+    file_put_contents($fileName, implode("\n", $queries));
+    $payload = [
+        'from' => trim(getenv('FROM_EMAIL_ID')),
+        'to' => trim(getenv('TO_EMAIL_ID')),
+        'subject' => 'DB Backup - ' . $formattedDBName . ' ' . date('d-m-Y'),
+        'body' => "\nPFA",
+        'attachments' => [
+            [
+                'filename' => $fileName,
+                'content' => base64_encode(file_get_contents($fileName))
+            ]
+        ]
+    ];
+
+    echo "\n\t\t\tSending email\n";
+
+    sendMail($payload);
+
+    unlink($fileName);
 }
