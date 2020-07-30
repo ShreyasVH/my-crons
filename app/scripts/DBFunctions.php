@@ -119,14 +119,6 @@ function getQueriesForTable($config, $tableName)
         $queries[] = "# Dump of table " . $tableName;
         $queries[] = "# ------------------------------------------------------------";
 
-        $queries[] = "DROP TABLE IF EXISTS `" . $tableName . "`;";
-        $queries[] = "/*!40101 SET @saved_cs_client     = @@character_set_client */;";
-        $queries[] = "/*!40101 SET character_set_client = utf8 */;";
-        $queries[] = $structure . ";";
-        $queries[] = "/*!40101 SET character_set_client = @saved_cs_client */;";
-        $queries[] = "\n";
-        $queries[] = 'TRUNCATE TABLE `' . $tableName . "`;\n";
-
         $queries[] = "/*!40000 ALTER TABLE `" . $tableName . "` DISABLE KEYS */;";
         $totalCount = getRowCount($config, $tableName);
 
